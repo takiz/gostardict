@@ -1,8 +1,12 @@
 package stardict
 
 import (
+	"compress/gzip"
 	"encoding/binary"
+	"io"
 	"io/ioutil"
+	"os"
+	"strings"
 )
 
 // Sense has information belonging to single item position in dictionary
@@ -13,38 +17,57 @@ type Sense struct {
 
 // Idx implements an in-memory index for a dictionary
 type Idx struct {
-	items map[string][]*Sense
+	Items map[string][]*Sense
 }
 
 // NewIdx initializes idx struct
 func NewIdx() *Idx {
 	idx := new(Idx)
-	idx.items = make(map[string][]*Sense)
+	idx.Items = make(map[string][]*Sense)
 	return idx
 }
 
 // Add adds an item to in-memory index
 func (idx *Idx) Add(item string, offset uint64, size uint64) {
-	idx.items[item] = append(idx.items[item], &Sense{Offset: offset, Size: size})
+	idx.Items[item] = append(idx.Items[item], &Sense{Offset: offset, Size: size})
 }
 
 // Get gets all translations for an item
 func (idx Idx) Get(item string) []*Sense {
-	return idx.items[item]
+	return idx.Items[item]
 }
 
 // ReadIndex reads dictionary index into a memory and returns in-memory index structure
 func ReadIndex(filename string, info *Info) (idx *Idx, err error) {
-	data, err := ioutil.ReadFile(filename)
-
-	// unable to read index
+	reader, err := os.Open(filename)
 	if err != nil {
 		return
 	}
+	defer reader.Close()
+
+	var r io.Reader
+	if strings.HasSuffix(filename, ".gz") { // if file is compressed then read it from archive
+		r, err = gzip.NewReader(reader)
+	} else {
+		r = reader
+	}
+	if err != nil {
+		return
+	}
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return
+	}
+	//	==================
+	// data, err := ioutil.ReadFile(filename)
+
+	// // unable to read index
+	// if err != nil {
+	// 	return
+	// }
 
 	idx = NewIdx()
-
-	var a [255]byte // temporary buffer
+	var a [512]byte // temporary buffer
 	var aIdx int
 	var expect int
 
@@ -65,7 +88,6 @@ func ReadIndex(filename string, info *Info) (idx *Idx, err error) {
 			a[aIdx] = b
 			if b == 0 {
 				dataStr = string(a[:aIdx])
-
 				aIdx = 0
 				expect++
 				continue
@@ -80,7 +102,6 @@ func ReadIndex(filename string, info *Info) (idx *Idx, err error) {
 					} else {
 						dataOffset = uint64(binary.BigEndian.Uint32(a[:maxIntBytes]))
 					}
-
 					aIdx = 0
 					expect++
 					continue

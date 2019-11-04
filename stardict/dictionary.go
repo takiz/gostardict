@@ -26,6 +26,10 @@ type Dictionary struct {
 	info *Info
 }
 
+func (d Dictionary) GetIdx() *Idx {
+	return d.idx
+}
+
 // Translate translates given item
 func (d Dictionary) Translate(item string) (items []*Translation) {
 	senses := d.idx.Get(item)
@@ -134,28 +138,33 @@ func NewDictionary(path string, name string) (*Dictionary, error) {
 
 	path = filepath.Clean(path)
 
-	dictDzPath := filepath.Join(path, name+".dict.dz")
-	dictPath := filepath.Join(path, name+".dict")
+	// dictDzPath := filepath.Join(path, name+".dict.dz")
+	// dictPath := filepath.Join(path, name+".dict")
 
 	idxPath := filepath.Join(path, name+".idx")
+	idxGzPath := filepath.Join(path, name+".idx.gz")
 	infoPath := filepath.Join(path, name+".ifo")
 
 	if _, err := os.Stat(infoPath); os.IsNotExist(err) {
 		return nil, err
 	}
 
-	if _, err := os.Stat(idxPath); os.IsNotExist(err) {
-		return nil, err
-	}
-
-	// we should have either .dict.dz or .dict file
-	if _, err := os.Stat(dictDzPath); os.IsNotExist(err) {
-		if _, err := os.Stat(dictPath); os.IsNotExist(err) {
+	if _, err := os.Stat(idxGzPath); os.IsNotExist(err) {
+		if _, err := os.Stat(idxPath); os.IsNotExist(err) {
 			return nil, err
 		}
 	} else {
-		dictPath = dictDzPath
+		idxPath = idxGzPath
 	}
+
+	// // we should have either .dict.dz or .dict file
+	// if _, err := os.Stat(dictDzPath); os.IsNotExist(err) {
+	// 	if _, err := os.Stat(dictPath); os.IsNotExist(err) {
+	// 		return nil, err
+	// 	}
+	// } else {
+	// 	dictPath = dictDzPath
+	// }
 
 	info, err := ReadInfo(infoPath)
 
@@ -169,15 +178,17 @@ func NewDictionary(path string, name string) (*Dictionary, error) {
 		return nil, err
 	}
 
-	dict, err := ReadDict(dictPath, info)
+	// dict, err := ReadDict(dictPath, info)
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// var dict *Dict
 
 	d.info = info
 	d.idx = idx
-	d.dict = dict
+	// d.dict = dict
 
 	return d, nil
 }
